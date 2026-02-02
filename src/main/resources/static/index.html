@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <style>
+        [v-cloak] { display: none; }
+        .fade-enter-active, .fade-leave-active { transition: opacity 0.3s; }
+        .fade-enter-from, .fade-leave-to { opacity: 0; }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div id="app" v-cloak>
+        <!-- Header -->
+        <header class="bg-green-600 text-white shadow-lg">
+            <div class="container mx-auto px-4 py-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <i class="ri-whatsapp-line text-3xl"></i>
+                        <h1 class="text-2xl font-bold">WhatsApp Dashboard</h1>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <span :class="connectionClass" class="px-3 py-1 rounded-full text-sm font-medium">
+                            <i class="ri-signal-wifi-line mr-1"></i>
+                            {{ connectionStatus }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="container mx-auto px-4 py-6">
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <div class="flex items-center">
+                        <div class="p-3 bg-yellow-100 rounded-lg">
+                            <i class="ri-time-line text-2xl text-yellow-600"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-gray-500 text-sm">Aguardando Atendente</p>
+                            <p class="text-3xl font-bold text-gray-800">{{ stats.waitingForAgent }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <div class="flex items-center">
+                        <div class="p-3 bg-green-100 rounded-lg">
+                            <i class="ri-chat-3-line text-2xl text-green-600"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-gray-500 text-sm">Conversas Ativas</p>
+                            <p class="text-3xl font-bold text-gray-800">{{ stats.activeConversations }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <div class="flex items-center">
+                        <div class="p-3 bg-blue-100 rounded-lg">
+                            <i class="ri-contacts-line text-2xl text-blue-600"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-gray-500 text-sm">Total Contatos</p>
+                            <p class="text-3xl font-bold text-gray-800">{{ stats.totalContacts }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabs -->
+            <div class="bg-white rounded-xl shadow-md">
+                <div class="border-b border-gray-200">
+                    <nav class="flex -mb-px">
+                        <button @click="activeTab = 'conversations'" 
+                                :class="activeTab === 'conversations' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500'"
+                                class="px-6 py-4 border-b-2 font-medium text-sm hover:text-green-600 transition">
+                            <i class="ri-chat-3-line mr-2"></i>Conversas
+                        </button>
+                        <button @click="activeTab = 'waiting'" 
+                                :class="activeTab === 'waiting' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500'"
+                                class="px-6 py-4 border-b-2 font-medium text-sm hover:text-green-600 transition relative">
+                            <i class="ri-user-voice-line mr-2"></i>Aguardando Atendente
+                            <span v-if="stats.waitingForAgent > 0" class="absolute top-2 right-2 bg-red-500 text-white text-xs rounded-full px-2">
+                                {{ stats.waitingForAgent }}
+                            </span>
+                        </button>
+                        <button @click="activeTab = 'contacts'" 
+                                :class="activeTab === 'contacts' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500'"
+                                class="px-6 py-4 border-b-2 font-medium text-sm hover:text-green-600 transition">
+                            <i class="ri-contacts-line mr-2"></i>Contatos
+                        </button>
+                        <button @click="activeTab = 'campaign'" 
+                                :class="activeTab === 'campaign' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500'"
+                                class="px-6 py-4 border-b-2 font-medium text-sm hover:text-green-600 transition">
+                            <i class="ri-megaphone-line mr-2"></i>Campanhas
+                        </button>
+                    </nav>
+                </div>
+
+                <!-- Tab Content -->
+                <div class="p-6">
+                    <!-- Conversations Tab -->
+                    <div v-if="activeTab === 'conversations'">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-lg font-semibold">Conversas Ativas</h2>
+                            <button @click="loadConversations" class="text-green-600 hover:text-green-700">
+                                <i class="ri-refresh-line"></i> Atualizar
+                            </button>
+                        </div>
+                        <div class="space-y-3">
+                            <div v-for="conv in conversations" :key="conv.id" 
+                                 @click="selectConversation(conv)"
+                                 class="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 cursor-pointer transition">
+                                <div class="flex items-center">
+                                    <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                                        <i class="ri-user-line text-green-600 text-xl"></i>
+                                    </div>
+                                    <div class="ml-4">
+                                        <p class="font-medium">{{ conv.contactName || conv.number }}</p>
+                                        <p class="text-sm text-gray-500">{{ conv.number }}</p>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <span :class="getStatusClass(conv.status)" class="px-2 py-1 rounded-full text-xs font-medium">
+                                        {{ getStatusLabel(conv.status) }}
+                                    </span>
+                                    <p class="text-xs text-gray-400 mt-1">{{ formatDate(conv.lastMessageAt) }}</p>
+                                </div>
+                            </div>
+                            <p v-if="conversations.length === 0" class="text-center text-gray-500 py-8">
+                                Nenhuma conversa ativa
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Waiting Tab -->
+                    <div v-if="activeTab === 'waiting'">
+                        <h2 class="text-lg font-semibold mb-4">Aguardando Atendente</h2>
+                        <div class="space-y-3">
+                            <div v-for="conv in waitingConversations" :key="conv.id" 
+                                 class="flex items-center justify-between p-4 border border-yellow-200 bg-yellow-50 rounded-lg">
+                                <div class="flex items-center">
+                                    <div class="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
+                                        <i class="ri-user-voice-line text-yellow-600 text-xl"></i>
+                                    </div>
+                                    <div class="ml-4">
+                                        <p class="font-medium">{{ conv.contactName || conv.number }}</p>
+                                        <p class="text-sm text-gray-500">Esperando há {{ getWaitTime(conv.lastMessageAt) }}</p>
+                                    </div>
+                                </div>
+                                <button @click="assignToMe(conv)" 
+                                        class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
+                                    <i class="ri-hand-heart-line mr-1"></i>Atender
+                                </button>
+                            </div>
+                            <p v-if="waitingConversations.length === 0" class="text-center text-gray-500 py-8">
+                                Nenhuma conversa aguardando atendente
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Contacts Tab -->
+                    <div v-if="activeTab === 'contacts'">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-lg font-semibold">Contatos</h2>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-sm text-gray-500">{{ selectedContacts.length }} selecionados</span>
+                                <button v-if="selectedContacts.length > 0" 
+                                        @click="activeTab = 'campaign'"
+                                        class="px-3 py-1 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700">
+                                    <i class="ri-send-plane-line mr-1"></i>Enviar Promoção
+                                </button>
+                            </div>
+                        </div>
+                        <table class="w-full">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-3 text-left">
+                                        <input type="checkbox" @change="toggleAllContacts" :checked="allContactsSelected">
+                                    </th>
+                                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-500">Nome</th>
+                                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-500">Número</th>
+                                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-500">Última Interação</th>
+                                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-500">Opt-in</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y">
+                                <tr v-for="contact in contacts" :key="contact.id" class="hover:bg-gray-50">
+                                    <td class="px-4 py-3">
+                                        <input type="checkbox" :value="contact.number" v-model="selectedContacts">
+                                    </td>
+                                    <td class="px-4 py-3">{{ contact.name || '-' }}</td>
+                                    <td class="px-4 py-3">{{ contact.number }}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-500">{{ formatDate(contact.lastInteraction) }}</td>
+                                    <td class="px-4 py-3">
+                                        <span :class="contact.optedIn ? 'text-green-600' : 'text-red-600'">
+                                            <i :class="contact.optedIn ? 'ri-check-line' : 'ri-close-line'"></i>
+                                        </span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <p v-if="contacts.length === 0" class="text-center text-gray-500 py-8">
+                            Nenhum contato cadastrado
+                        </p>
+                    </div>
+
+                    <!-- Campaign Tab -->
+                    <div v-if="activeTab === 'campaign'">
+                        <h2 class="text-lg font-semibold mb-4">Enviar Campanha/Promoção</h2>
+                        <div class="max-w-2xl">
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    Destinatários ({{ selectedContacts.length }} selecionados)
+                                </label>
+                                <div class="flex flex-wrap gap-2 p-3 border rounded-lg bg-gray-50 min-h-[60px]">
+                                    <span v-for="number in selectedContacts" :key="number" 
+                                          class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-sm flex items-center">
+                                        {{ number }}
+                                        <button @click="removeContact(number)" class="ml-1 hover:text-red-600">
+                                            <i class="ri-close-line"></i>
+                                        </button>
+                                    </span>
+                                    <span v-if="selectedContacts.length === 0" class="text-gray-400 text-sm">
+                                        Selecione contatos na aba "Contatos"
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Mensagem</label>
+                                <textarea v-model="campaignMessage" rows="5" 
+                                          class="w-full border rounded-lg p-3 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                          placeholder="Digite sua mensagem de promoção..."></textarea>
+                                <p class="text-xs text-gray-500 mt-1">Use *texto* para negrito, _texto_ para itálico</p>
+                            </div>
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Imagem (opcional)</label>
+                                <input v-model="campaignImageUrl" type="url" 
+                                       class="w-full border rounded-lg p-3 focus:ring-2 focus:ring-green-500"
+                                       placeholder="https://exemplo.com/imagem.jpg">
+                            </div>
+                            <button @click="sendCampaign" 
+                                    :disabled="selectedContacts.length === 0 || !campaignMessage"
+                                    class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition">
+                                <i class="ri-send-plane-line mr-2"></i>
+                                Enviar para {{ selectedContacts.length }} contatos
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Chat Modal -->
+        <div v-if="selectedConversation" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+                <!-- Modal Header -->
+                <div class="flex items-center justify-between p-4 border-b bg-green-600 text-white rounded-t-xl">
+                    <div class="flex items-center">
+                        <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                            <i class="ri-user-line"></i>
+                        </div>
+                        <div class="ml-3">
+                            <p class="font-medium">{{ selectedConversation.contactName || selectedConversation.number }}</p>
+                            <p class="text-sm text-green-100">{{ selectedConversation.number }}</p>
+                        </div>
+                    </div>
+                    <button @click="selectedConversation = null" class="hover:bg-white/20 p-2 rounded-lg">
+                        <i class="ri-close-line text-xl"></i>
+                    </button>
+                </div>
+                
+                <!-- Messages -->
+                <div class="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-100">
+                    <div v-for="msg in chatMessages" :key="msg.id"
+                         :class="msg.direction === 'OUTGOING' ? 'flex justify-end' : 'flex justify-start'">
+                        <div :class="msg.direction === 'OUTGOING' ? 'bg-green-500 text-white' : 'bg-white'"
+                             class="max-w-[70%] rounded-lg px-4 py-2 shadow">
+                            <p>{{ msg.content }}</p>
+                            <p class="text-xs opacity-70 mt-1">{{ formatTime(msg.createdAt) }}</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Input -->
+                <div class="p-4 border-t">
+                    <div class="flex space-x-2">
+                        <input v-model="newMessage" @keyup.enter="sendMessage"
+                               class="flex-1 border rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500"
+                               placeholder="Digite sua mensagem...">
+                        <button @click="sendMessage" 
+                                class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                            <i class="ri-send-plane-fill"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast -->
+        <div v-if="toast.show" 
+             :class="toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'"
+             class="fixed bottom-4 right-4 text-white px-6 py-3 rounded-lg shadow-lg flex items-center">
+            <i :class="toast.type === 'success' ? 'ri-check-line' : 'ri-error-warning-line'" class="mr-2"></i>
+            {{ toast.message }}
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, computed, onMounted } = Vue;
+
+        const API_BASE = 'http://localhost:8080/api/dashboard';
+
+        createApp({
+            setup() {
+                // State
+                const activeTab = ref('conversations');
+                const connectionStatus = ref('Verificando...');
+                const stats = ref({ waitingForAgent: 0, activeConversations: 0, totalContacts: 0 });
+                const conversations = ref([]);
+                const waitingConversations = ref([]);
+                const contacts = ref([]);
+                const selectedContacts = ref([]);
+                const selectedConversation = ref(null);
+                const chatMessages = ref([]);
+                const newMessage = ref('');
+                const campaignMessage = ref('');
+                const campaignImageUrl = ref('');
+                const toast = ref({ show: false, message: '', type: 'success' });
+
+                // Computed
+                const connectionClass = computed(() => {
+                    if (connectionStatus.value === 'Conectado') return 'bg-green-100 text-green-800';
+                    if (connectionStatus.value === 'Desconectado') return 'bg-red-100 text-red-800';
+                    return 'bg-yellow-100 text-yellow-800';
+                });
+
+                const allContactsSelected = computed(() => {
+                    return contacts.value.length > 0 && 
+                           selectedContacts.value.length === contacts.value.length;
+                });
+
+                // Methods
+                const showToast = (message, type = 'success') => {
+                    toast.value = { show: true, message, type };
+                    setTimeout(() => toast.value.show = false, 3000);
+                };
+
+                const loadStats = async () => {
+                    try {
+                        const res = await fetch(`${API_BASE}/stats`);
+                        stats.value = await res.json();
+                    } catch (e) {
+                        console.error('Erro ao carregar stats:', e);
+                    }
+                };
+
+                const loadConversations = async () => {
+                    try {
+                        const res = await fetch(`${API_BASE}/conversations`);
+                        conversations.value = await res.json();
+                    } catch (e) {
+                        console.error('Erro ao carregar conversas:', e);
+                    }
+                };
+
+                const loadWaitingConversations = async () => {
+                    try {
+                        const res = await fetch(`${API_BASE}/conversations/waiting`);
+                        waitingConversations.value = await res.json();
+                    } catch (e) {
+                        console.error('Erro ao carregar aguardando:', e);
+                    }
+                };
+
+                const loadContacts = async () => {
+                    try {
+                        const res = await fetch(`${API_BASE}/contacts`);
+                        contacts.value = await res.json();
+                    } catch (e) {
+                        console.error('Erro ao carregar contatos:', e);
+                    }
+                };
+
+                const checkConnection = async () => {
+                    try {
+                        const res = await fetch(`${API_BASE}/connection/status`);
+                        const data = await res.json();
+                        connectionStatus.value = data.state === 'open' ? 'Conectado' : 'Desconectado';
+                    } catch (e) {
+                        connectionStatus.value = 'Erro';
+                    }
+                };
+
+                const selectConversation = async (conv) => {
+                    selectedConversation.value = conv;
+                    try {
+                        const res = await fetch(`${API_BASE}/conversations/${conv.id}`);
+                        const data = await res.json();
+                        chatMessages.value = data.messages || [];
+                    } catch (e) {
+                        console.error('Erro ao carregar mensagens:', e);
+                    }
+                };
+
+                const sendMessage = async () => {
+                    if (!newMessage.value.trim() || !selectedConversation.value) return;
+                    
+                    try {
+                        await fetch(`${API_BASE}/conversations/${selectedConversation.value.id}/send`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ message: newMessage.value })
+                        });
+                        
+                        chatMessages.value.push({
+                            id: Date.now(),
+                            content: newMessage.value,
+                            direction: 'OUTGOING',
+                            createdAt: new Date().toISOString()
+                        });
+                        
+                        newMessage.value = '';
+                        showToast('Mensagem enviada!');
+                    } catch (e) {
+                        showToast('Erro ao enviar mensagem', 'error');
+                    }
+                };
+
+                const assignToMe = async (conv) => {
+                    try {
+                        await fetch(`${API_BASE}/conversations/${conv.id}/assign`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ agentName: 'Atendente' })
+                        });
+                        showToast('Conversa atribuída a você!');
+                        loadWaitingConversations();
+                        loadConversations();
+                        loadStats();
+                    } catch (e) {
+                        showToast('Erro ao assumir conversa', 'error');
+                    }
+                };
+
+                const sendCampaign = async () => {
+                    if (selectedContacts.value.length === 0 || !campaignMessage.value) return;
+                    
+                    try {
+                        const endpoint = campaignImageUrl.value ? '/campaign/send-image' : '/campaign/send';
+                        const body = campaignImageUrl.value 
+                            ? { numbers: selectedContacts.value, imageUrl: campaignImageUrl.value, caption: campaignMessage.value }
+                            : { numbers: selectedContacts.value, message: campaignMessage.value };
+                        
+                        await fetch(`${API_BASE}${endpoint}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(body)
+                        });
+                        
+                        showToast(`Campanha iniciada para ${selectedContacts.value.length} contatos!`);
+                        selectedContacts.value = [];
+                        campaignMessage.value = '';
+                        campaignImageUrl.value = '';
+                    } catch (e) {
+                        showToast('Erro ao enviar campanha', 'error');
+                    }
+                };
+
+                const toggleAllContacts = () => {
+                    if (allContactsSelected.value) {
+                        selectedContacts.value = [];
+                    } else {
+                        selectedContacts.value = contacts.value.map(c => c.number);
+                    }
+                };
+
+                const removeContact = (number) => {
+                    selectedContacts.value = selectedContacts.value.filter(n => n !== number);
+                };
+
+                const getStatusClass = (status) => {
+                    const classes = {
+                        'BOT': 'bg-blue-100 text-blue-800',
+                        'WAITING_AGENT': 'bg-yellow-100 text-yellow-800',
+                        'WITH_AGENT': 'bg-green-100 text-green-800',
+                        'CLOSED': 'bg-gray-100 text-gray-800'
+                    };
+                    return classes[status] || 'bg-gray-100';
+                };
+
+                const getStatusLabel = (status) => {
+                    const labels = {
+                        'BOT': 'Com Bot',
+                        'WAITING_AGENT': 'Aguardando',
+                        'WITH_AGENT': 'Com Atendente',
+                        'CLOSED': 'Fechada'
+                    };
+                    return labels[status] || status;
+                };
+
+                const formatDate = (dateStr) => {
+                    if (!dateStr) return '-';
+                    const date = new Date(dateStr);
+                    return date.toLocaleDateString('pt-BR') + ' ' + date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                };
+
+                const formatTime = (dateStr) => {
+                    if (!dateStr) return '';
+                    return new Date(dateStr).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                };
+
+                const getWaitTime = (dateStr) => {
+                    if (!dateStr) return '';
+                    const diff = Date.now() - new Date(dateStr).getTime();
+                    const minutes = Math.floor(diff / 60000);
+                    if (minutes < 60) return `${minutes} min`;
+                    return `${Math.floor(minutes / 60)}h ${minutes % 60}min`;
+                };
+
+                // Lifecycle
+                onMounted(() => {
+                    loadStats();
+                    loadConversations();
+                    loadWaitingConversations();
+                    loadContacts();
+                    checkConnection();
+                    
+                    // Auto-refresh
+                    setInterval(() => {
+                        loadStats();
+                        loadWaitingConversations();
+                        checkConnection();
+                    }, 10000);
+                });
+
+                return {
+                    activeTab,
+                    connectionStatus,
+                    connectionClass,
+                    stats,
+                    conversations,
+                    waitingConversations,
+                    contacts,
+                    selectedContacts,
+                    allContactsSelected,
+                    selectedConversation,
+                    chatMessages,
+                    newMessage,
+                    campaignMessage,
+                    campaignImageUrl,
+                    toast,
+                    loadConversations,
+                    selectConversation,
+                    sendMessage,
+                    assignToMe,
+                    sendCampaign,
+                    toggleAllContacts,
+                    removeContact,
+                    getStatusClass,
+                    getStatusLabel,
+                    formatDate,
+                    formatTime,
+                    getWaitTime
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
